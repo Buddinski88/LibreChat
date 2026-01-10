@@ -129,6 +129,25 @@ registration:
 # Note: If balance.enabled is true, transactions will always be enabled
 # regardless of this setting to ensure balance tracking works correctly
 
+speech:
+  tts:
+    enabled: true
+    provider: custom
+    endpoint: "http://host.docker.internal:10200/speak"
+    method: "POST"
+    input_field: "text"
+    output_field: "audio"
+    audio_format: "wav"        # oder "mp3", je nach Piper-Setup
+
+  stt:
+    enabled: true
+    provider: custom
+    endpoint: "http://host.docker.internal:10300/transcribe"
+    method: "POST"
+    input_field: "audio"      # oder "file" – je nach API deines Containers
+    output_field: "text"
+
+
 # speech:
 #   tts:
 #     openai:
