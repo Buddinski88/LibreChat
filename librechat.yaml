@@ -346,8 +346,15 @@ endpoints:
       baseURL: 'http://host.docker.internal:11434/v1'
       models:
         default: [
-          'llama3.2:latest', 
-          'mistral-7b:latest',
+          'qwen3.6:27b',
+          'qwen3.6:27b',
+          'qwen2.5:7b',
+          'qwen3-vl:8b',
+          'qwen3.5:9b',
+          'qwen3-embedding:latest',
+          'mxbai-embed-large:latest',
+          'mistral:7b',
+          'llama3.1:8b'
           ]
         fetch: true
       titleConvo: true
