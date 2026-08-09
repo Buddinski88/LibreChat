@@ -3,11 +3,20 @@ import { useToastContext } from '@librechat/client';
 import { EToolResources } from 'librechat-data-provider';
 import type { ExtendedFile } from '~/common';
 import { useDeleteFilesMutation } from '~/data-provider';
+import { logger, getCachedPreview } from '~/utils';
 import { useFileDeletion } from '~/hooks/Files';
 import FileContainer from './FileContainer';
 import { useLocalize } from '~/hooks';
-import { logger } from '~/utils';
 import Image from './Image';
+
+/**
+ * Shared wrapper with a stable module-scope identity. Passing an inline arrow as
+ * `Wrapper` makes it a new component type on every render, so React remounts the
+ * whole row and any focused control inside it loses focus.
+ */
+export const FileRowWrapper = ({ children }: { children: React.ReactNode }) => (
+  <div className="flex flex-wrap gap-2">{children}</div>
+);
 
 export default function FileRow({
   files: _files,
@@ -24,7 +33,7 @@ export default function FileRow({
   files: Map<string, ExtendedFile> | undefined;
   abortUpload?: () => void;
   setFiles: React.Dispatch<React.SetStateAction<Map<string, ExtendedFile>>>;
-  setFilesLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  setFilesLoading?: React.Dispatch<React.SetStateAction<boolean>>;
   fileFilter?: (file: ExtendedFile) => boolean;
   assistant_id?: string;
   agent_id?: string;
@@ -58,6 +67,7 @@ export default function FileRow({
   const { deleteFile } = useFileDeletion({ mutateAsync, agent_id, assistant_id, tool_resource });
 
   useEffect(() => {
+    if (!setFilesLoading) return;
     if (files.length === 0) {
       setFilesLoading(false);
       return;
@@ -111,12 +121,14 @@ export default function FileRow({
           )
           .uniqueFiles.map((file: ExtendedFile, index: number) => {
             const handleDelete = () => {
-              showToast({
-                message: localize('com_ui_deleting_file'),
-                status: 'info',
-              });
               if (abortUpload && file.progress < 1) {
                 abortUpload();
+              }
+              if (file.progress >= 1 && !file.attached) {
+                showToast({
+                  message: localize('com_ui_deleting_file'),
+                  status: 'info',
+                });
               }
               deleteFile({ file, setFiles });
             };
@@ -133,7 +145,7 @@ export default function FileRow({
               >
                 {isImage ? (
                   <Image
-                    url={file.progress === 1 ? file.filepath : (file.preview ?? file.filepath)}
+                    url={getCachedPreview(file.file_id) ?? file.preview ?? file.filepath}
                     onDelete={handleDelete}
                     progress={file.progress}
                     source={file.source}

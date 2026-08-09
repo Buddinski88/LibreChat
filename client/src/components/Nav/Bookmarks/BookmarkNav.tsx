@@ -1,10 +1,10 @@
-import { useState, useId, useMemo, useCallback } from 'react';
+import { useState, useId, useMemo, useCallback, memo } from 'react';
 import * as Ariakit from '@ariakit/react';
 import { CrossCircledIcon } from '@radix-ui/react-icons';
 import { DropdownPopup, TooltipAnchor } from '@librechat/client';
 import { BookmarkFilledIcon, BookmarkIcon } from '@radix-ui/react-icons';
-import type * as t from '~/common';
 import type { FC } from 'react';
+import type * as t from '~/common';
 import { useGetConversationTags } from '~/data-provider';
 import { useLocalize } from '~/hooks';
 import { cn } from '~/utils';
@@ -24,6 +24,13 @@ const BookmarkNav: FC<BookmarkNavProps> = ({ tags, setTags }: BookmarkNavProps) 
     () => (tags.length > 0 ? tags.join(', ') : localize('com_ui_bookmarks')),
     [tags, localize],
   );
+
+  const buttonAriaLabel = useMemo(() => {
+    if (tags.length === 0) {
+      return localize('com_ui_bookmarks');
+    }
+    return localize('com_ui_bookmarks_count_selected', { count: tags.length });
+  }, [tags.length, localize]);
 
   const bookmarks = useMemo(() => data?.filter((tag) => tag.count > 0) ?? [], [data]);
 
@@ -73,6 +80,7 @@ const BookmarkNav: FC<BookmarkNavProps> = ({ tags, setTags }: BookmarkNavProps) 
             <BookmarkIcon className="size-4" />
           ),
           onClick: () => handleTagClick(bookmark.tag),
+          ariaChecked: isSelected,
         });
       }
     }
@@ -96,11 +104,13 @@ const BookmarkNav: FC<BookmarkNavProps> = ({ tags, setTags }: BookmarkNavProps) 
           render={
             <Ariakit.MenuButton
               id="bookmark-nav-menu-button"
-              aria-label={localize('com_ui_bookmarks')}
+              aria-label={buttonAriaLabel}
+              aria-pressed={tags.length > 0}
               className={cn(
                 'flex items-center justify-center',
-                'size-10 border-none text-text-primary hover:bg-accent hover:text-accent-foreground',
-                'rounded-full border-none p-2 hover:bg-surface-active-alt md:rounded-xl',
+                'size-9 border-none text-text-primary hover:bg-accent hover:text-accent-foreground',
+                'rounded-lg border-none p-2 hover:bg-surface-active-alt',
+                'outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-black dark:focus-visible:ring-white',
                 isMenuOpen ? 'bg-surface-hover' : '',
               )}
               data-testid="bookmark-menu"
@@ -119,4 +129,4 @@ const BookmarkNav: FC<BookmarkNavProps> = ({ tags, setTags }: BookmarkNavProps) 
   );
 };
 
-export default BookmarkNav;
+export default memo(BookmarkNav);

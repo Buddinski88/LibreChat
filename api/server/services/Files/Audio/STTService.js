@@ -3,8 +3,12 @@ const fs = require('fs').promises;
 const FormData = require('form-data');
 const { Readable } = require('stream');
 const { logger } = require('@librechat/data-schemas');
-const { HttpsProxyAgent } = require('https-proxy-agent');
-const { genAzureEndpoint, logAxiosError } = require('@librechat/api');
+const {
+  genAzureEndpoint,
+  logAxiosError,
+  applyAxiosProxyConfig,
+  resolveConfigSecret,
+} = require('@librechat/api');
 const { extractEnvVariable, STTProviders } = require('librechat-data-provider');
 const { getAppConfig } = require('~/server/services/Config');
 
@@ -142,6 +146,8 @@ class STTService {
       req.config ??
       (await getAppConfig({
         role: req?.user?.role,
+        userId: req?.user?.id,
+        tenantId: req?.user?.tenantId,
       }));
     const sttSchema = appConfig?.speech?.stt;
     if (!sttSchema) {
@@ -151,7 +157,7 @@ class STTService {
     }
 
     const providers = Object.entries(sttSchema).filter(
-      ([, value]) => Object.keys(value).length > 0,
+      ([key, value]) => key !== 'allowedAddresses' && Object.keys(value).length > 0,
     );
 
     if (providers.length !== 1) {
@@ -194,7 +200,7 @@ class STTService {
    */
   openAIProvider(sttSchema, audioReadStream, audioFile, language) {
     const url = sttSchema?.url || 'https://api.openai.com/v1/audio/transcriptions';
-    const apiKey = extractEnvVariable(sttSchema.apiKey) || '';
+    const apiKey = resolveConfigSecret(sttSchema.apiKey) || '';
 
     const data = {
       file: audioReadStream,
@@ -230,16 +236,22 @@ class STTService {
       azureOpenAIApiDeploymentName: extractEnvVariable(sttSchema?.deploymentName),
     })}/audio/transcriptions?api-version=${extractEnvVariable(sttSchema?.apiVersion)}`;
 
-    const apiKey = sttSchema.apiKey ? extractEnvVariable(sttSchema.apiKey) : '';
+    const apiKey = sttSchema.apiKey ? resolveConfigSecret(sttSchema.apiKey) || '' : '';
 
     if (audioBuffer.byteLength > 25 * 1024 * 1024) {
       throw new Error('The audio file size exceeds the limit of 25MB');
     }
 
     const acceptedFormats = ['flac', 'mp3', 'mp4', 'mpeg', 'mpga', 'm4a', 'ogg', 'wav', 'webm'];
-    const fileFormat = audioFile.mimetype.split('/')[1];
-    if (!acceptedFormats.includes(fileFormat)) {
-      throw new Error(`The audio file format ${fileFormat} is not accepted`);
+    const [mimePrefix, rawFormat = ''] = audioFile.mimetype.split('/');
+    const isAudioMime = mimePrefix === 'audio' || mimePrefix === 'video';
+    const isKnownMime = audioFile.mimetype in MIME_TO_EXTENSION_MAP;
+    const normalizedFormat = isKnownMime ? MIME_TO_EXTENSION_MAP[audioFile.mimetype] : null;
+    if (
+      !acceptedFormats.includes(normalizedFormat) &&
+      !(isAudioMime && acceptedFormats.includes(rawFormat))
+    ) {
+      throw new Error(`The audio file format ${rawFormat} is not accepted`);
     }
 
     const formData = new FormData();
@@ -295,9 +307,7 @@ class STTService {
 
     const options = { headers };
 
-    if (process.env.PROXY) {
-      options.httpsAgent = new HttpsProxyAgent(process.env.PROXY);
-    }
+    applyAxiosProxyConfig(options, url);
 
     try {
       const response = await axios.post(url, data, options);
@@ -376,4 +386,4 @@ async function speechToText(req, res) {
   await sttService.processSpeechToText(req, res);
 }
 
-module.exports = { STTService, speechToText };
+module.exports = { STTService, speechToText, getFileExtensionFromMime, MIME_TO_EXTENSION_MAP };

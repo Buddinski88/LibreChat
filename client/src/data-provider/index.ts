@@ -1,11 +1,14 @@
 export * from './Auth';
 export * from './Agents';
 export * from './Endpoints';
+export * from './Skills';
 export * from './Files';
+export * from './Langfuse';
 /* Memories */
 export * from './Memories';
 export * from './Messages';
 export * from './Misc';
+export * from './Projects';
 export * from './Tools';
 export * from './connection';
 export * from './Favorites';
